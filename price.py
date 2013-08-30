@@ -6,10 +6,16 @@ import re
 import logging
 from collections import OrderedDict
 def amazon_brief_url(url):
-	start = url.find(u'/dp/')
-	end  = url.find(u'/',start+len(r'/dp/'))
-	itemid = url[start:end]
-	return 'http://www.amazon.cn' + itemid	
+	if url.find(u'/dp/') != -1:
+		start = url.find(u'/dp/')
+		end  = url.find(u'/',start+len(r'/dp/'))
+		itemid = url[start+len(u'/dp/'):end]
+		return 'http://www.amazon.cn' + '/dp/'+itemid	
+	elif url.find(u'/gp/product/') != -1:
+		start = url.find(u'/gp/product/')
+		end  = url.find(u'/',start+len(r'/gp/product/'))
+		itemid = url[start+len(u'/gp/product/'):end]
+		return 'http://www.amazon.cn' + '/gp/product/'+itemid	
 def amazon_price_url(burl):
 	'''use original url
 	start = url.find(u'/dp/')
@@ -23,13 +29,52 @@ def amazon_search(purl):
 		r = requests.get(purl)
 	except:
 		return None
-	start = r.text.find(u'actualPriceValue')
-	start = r.text.find(u'<b class="priceLarge">￥',start+len('actualPriceValue'))
-	end = r.text.find(u'</b>',start+len(r'<b class="priceLarge">￥ '))
-	price = r.text[start+len(u'<b class="priceLarge">￥ '):end]
-	return price
-
-
+	start = r.text.find(u'variationDimensionValue')
+	# purl = 'http://www.amazon.cn/gp/twister/ajax/prefetch?parentAsin=B00CWQI2PA&asinList=B00CWQI2PA'
+	# print r.text[start:start+2000].encode('utf8')
+	if start == -1:
+		start = purl.rfind(u'/',0)
+		itemid = purl[start+1:].encode('utf8')
+		purl = 'http://www.amazon.cn/gp/twister/ajax/prefetch?parentAsin='+itemid+'&asinList='+itemid
+		try:
+			pr = requests.get(purl)
+		except:
+			return None
+		pstart = pr.text.find(u'actualPriceValue')
+		pstart = pr.text.find(u'<b class="priceLarge">￥',pstart+len('actualPriceValue'))
+		pend = pr.text.find(u'</b>',pstart+len(r'<b class="priceLarge">￥ '))
+		price = pr.text[pstart+len(u'<b class="priceLarge">￥ '):pend]
+		print itemid,price
+		# start = r.text.find(u'actualPriceValue')
+		# start = r.text.find(u'<b class="priceLarge">￥',start+len('actualPriceValue'))
+		# end = r.text.find(u'</b>',start+len(r'<b class="priceLarge">￥ '))
+		# price = r.text[start+len(u'<b class="priceLarge">￥ '):end]
+	else:
+		resultlist={}
+		while True:
+			if start == -1:
+				break
+			start = r.text.find(u'.',start)
+			end = r.text.find(u'"',start)
+			itemid = r.text[start+1:end]
+			start = r.text.find(u'value="',start)
+			end = r.text.find(u'"',start+len(u'value="'))
+			value = r.text[start+len(u'value="'):end]
+			purl = 'http://www.amazon.cn/gp/twister/ajax/prefetch?parentAsin='+itemid+'&asinList='+itemid
+			try:
+				pr = requests.get(purl)
+			except:
+				return None
+			pstart = pr.text.find(u'actualPriceValue')
+			pstart = pr.text.find(u'<b class="priceLarge">￥',pstart+len('actualPriceValue'))
+			pend = pr.text.find(u'</b>',pstart+len(r'<b class="priceLarge">￥ '))
+			price = pr.text[pstart+len(u'<b class="priceLarge">￥ '):pend]
+			print itemid,value.encode('utf8'),price
+			# print r.text[start+1:end].encode('utf8')
+			start = r.text.find(u'variationDimensionValue',start)
+	# return price
+amazon_search(u'http://www.amazon.cn/dp/B003U8YLH2')
+# print amazon_brief_url(u'http://www.amazon.cn/Philips%E9%A3%9E%E5%88%A9%E6%B5%A630074%E9%85%B7%E6%8D%B7LED%E5%8F%B0%E7%81%AF%E7%99%BD%E8%89%B2/dp/B00647F8Z0/ref=br_lf_m_396728_1_1_img?ie=UTF8&s=home-improvement&pf_rd_p=82733012&pf_rd_s=center-1&pf_rd_t=1401&pf_rd_i=396728&pf_rd_m=A1AJ19PSB66TGU&pf_rd_r=0HK1KF3W6ZWMAYZF3ZNP&tag=undefined')
 
 def jd_brief_url(url):
 	return url
@@ -225,12 +270,12 @@ def search_taobao(url):
 # 	for j in i:
 # 		print i[j]
 # print "blue"
-# print amazon_search(u"http://www.amazon.cn/dp/B007WQP1ZY/")
+# print amazon_search(u"http://www.amazon.cn/dp/B007WQP1ZY")
 # print "cha"
-# print amazon_search(u"http://www.amazon.cn/dp/B007RSKTXQ/")
+# print amazon_search(u"http://www.amazon.cn/dp/B007RSKTXQ")
 # print "red"
-# print amazon_search(u"http://www.amazon.cn/dp/B007RSKSR8/")
+# print amazon_search(u"http://www.amazon.cn/dp/B007RSKSR8")
 # print "xi"
-# print amazon_search(u"http://www.amazon.cn/dp/B005EE1G46/")
+# print amazon_search(u"http://www.amazon.cn/dp/B005EE1G46")
 # print "cu"
-# print amazon_search(u"http://www.amazon.cn/dp/B005EE1FOW/")
+# print amazon_search(u"http://www.amazon.cn/dp/B005EE1FOW")
