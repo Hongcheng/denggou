@@ -1,30 +1,33 @@
 #! usr/bin/env python
 #coding:utf-8
+import socket
 import requests
 import json
 import re
 import logging
+import httplib
 from collections import OrderedDict
-def amazon_brief_url(url):
-	if url.find(u'/dp/') != -1:
-		start = url.find(u'/dp/')
-		end  = url.find(u'/',start+len(r'/dp/'))
-		itemid = url[start+len(u'/dp/'):end]
-		return 'http://www.amazon.cn' + '/dp/'+itemid	
-	elif url.find(u'/gp/product/') != -1:
-		start = url.find(u'/gp/product/')
-		end  = url.find(u'/',start+len(r'/gp/product/'))
-		itemid = url[start+len(u'/gp/product/'):end]
-		return 'http://www.amazon.cn' + '/gp/product/'+itemid	
-def amazon_price_url(burl):
-	'''use original url
-	start = url.find(u'/dp/')
-	end  = url.find(u'/',start+len(r'/dp/'))
-	itemid = url[start:end]
-	return 'http://www.amazon.cn' + itemid
-	'''
-	return burl
-def amazon_search(purl):
+from getitemid import *
+
+# print amazon_get_itemid(u'')
+# print jd_get_itemid(u'')
+# print dangdang_get_itemid(u'')
+# print tmall_get_itemid(u'')
+
+def getgoodip(purl):
+	ipaddr = socket.getaddrinfo(purl,'http')[0][4][0]
+	return ipaddr
+	# for i in range(10):
+	# 	ipaddr = socket.getaddrinfo(purl,'http')[i][4][0]
+	# 	conn = httplib.HTTPConnection(ipaddr)
+	# 	conn.request("GET", "")
+	# 	r1 = conn.getresponse()
+	# 	print r1.status
+	# 	if r1.status == 200:
+	# 		return ipaddr
+# print getgoodip(u'detail.tmall.com')
+def amazon_search(itemid,ip):
+	purl = 'http://'+ip+'/dp/'+itemid
 	try:
 		r = requests.get(purl)
 	except:
@@ -35,7 +38,7 @@ def amazon_search(purl):
 	if start == -1:
 		start = purl.rfind(u'/',0)
 		itemid = purl[start+1:].encode('utf8')
-		purl = 'http://www.amazon.cn/gp/twister/ajax/prefetch?parentAsin='+itemid+'&asinList='+itemid
+		purl = 'http://'+ip+'/gp/twister/ajax/prefetch?parentAsin='+itemid+'&asinList='+itemid
 		try:
 			pr = requests.get(purl)
 		except:
@@ -60,7 +63,7 @@ def amazon_search(purl):
 			start = r.text.find(u'value="',start)
 			end = r.text.find(u'"',start+len(u'value="'))
 			value = r.text[start+len(u'value="'):end]
-			purl = 'http://www.amazon.cn/gp/twister/ajax/prefetch?parentAsin='+itemid+'&asinList='+itemid
+			purl = 'http://'+ip+'/gp/twister/ajax/prefetch?parentAsin='+itemid+'&asinList='+itemid
 			try:
 				pr = requests.get(purl)
 			except:
@@ -72,18 +75,9 @@ def amazon_search(purl):
 			print itemid,value.encode('utf8'),price
 			# print r.text[start+1:end].encode('utf8')
 			start = r.text.find(u'variationDimensionValue',start)
-	# return price
-amazon_search(u'http://www.amazon.cn/dp/B003U8YLH2')
-# print amazon_brief_url(u'http://www.amazon.cn/Philips%E9%A3%9E%E5%88%A9%E6%B5%A630074%E9%85%B7%E6%8D%B7LED%E5%8F%B0%E7%81%AF%E7%99%BD%E8%89%B2/dp/B00647F8Z0/ref=br_lf_m_396728_1_1_img?ie=UTF8&s=home-improvement&pf_rd_p=82733012&pf_rd_s=center-1&pf_rd_t=1401&pf_rd_i=396728&pf_rd_m=A1AJ19PSB66TGU&pf_rd_r=0HK1KF3W6ZWMAYZF3ZNP&tag=undefined')
 
-def jd_brief_url(url):
-	return url
-def jd_price_url(burl):
-	start = burl.find(u'item.jd.com/')
-	end = burl.find(u'.html',start+len(r'/'))
-	itemid = burl[start+len(u'item.jd.com/'):end]
-	return 'http://p.3.cn/prices/mgets?skuIds=J_'+itemid
-def jd_search(purl):
+def jd_search(itemid,ip):
+	purl = 'http://'+ip+'/prices/mgets?skuIds=J_'+itemid
 	try:
 		r = requests.get(purl)
 	except:
@@ -97,27 +91,15 @@ def jd_search(purl):
 	use text.find to find the price'''
 	return price
 
-
-
-def dangdang_brief_url(url):
-	start = url.find(u'product_id=')
-	if start == -1:
-		start = url.find(u'dangdang.com/')
-		end = url.find(u'.html',start)
-		itemid = url[start+len(u'dangdang.com/'):end]
-	else:
-		end = url.find(u'&',start+len(u'product_id'))
-		itemid = url[start+len(u'product_id='):end]
-	return 'http://product.dangdang.com/'+itemid+'.html'
-def dangdang_price_url(burl):
-	return burl
-def dangdang_search(purl):
+def dangdang_search(itemid,ip):
+	purl = 'http://'+ip+'/'+itemid+'.html'
 	try:
 		r = requests.get(purl)
 	except:
 		return None
 	start1 = r.text.find(u'id="promo_price"')
 	start2 = r.text.find(u'prdJson')
+	start3 = r.text.find(u'"proid_price":"')
 	if start1 == -1:
 		if start2 == -1:
 			start = r.text.find(u'id="d_price"')
@@ -136,16 +118,22 @@ def dangdang_search(purl):
 				start = r.text.find(u'prdid',start)
 				if start == -1:
 					break
+				tag = ';'
 				start = r.text.find(u'"color":"',start)
 				end = r.text.find(u'"',start+len(u'"color":"'))
 				color = r.text[start+len(u'"color":"'):end]
+				tag += 'color:'+color+';'
+				start = r.text.find(u'"size":"',start)
+				end = r.text.find(u'"',start+len(u'"size":"'))
+				size = r.text[start+len(u'"size":"'):end]
+				tag += 'size:'+size+';'
 				start = r.text.find(u'"salePrice":"',start)
 				end = r.text.find(u'"',start+len(u'"salePrice":"'))
 				price = r.text[start+len(u'"salePrice":"'):end]
-				print color.encode('utf8')
+				print tag.encode('utf8')
 				print price
 	else:
-		if start2 == -1:
+		if start2 == -1 or start3 == -1:
 			start = r.text.find(u'id="promo_price">')
 			end = r.text.find(u' </i>',start+len(u'id="promo_price">'))
 			price = r.text[start+len(u'id="promo_price">&yen;'):end]
@@ -156,48 +144,24 @@ def dangdang_search(purl):
 				start = r.text.find(u'prdid',start)
 				if start == -1:
 					break
+				tag = ';'
 				start = r.text.find(u'"color":"',start)
 				end = r.text.find(u'"',start+len(u'"color":"'))
 				color = r.text[start+len(u'"color":"'):end]
+				tag += 'color:'+color+';'
+				start = r.text.find(u'"size":"',start)
+				end = r.text.find(u'"',start+len(u'"size":"'))
+				size = r.text[start+len(u'"size":"'):end]
+				tag += 'size:'+size+';'
 				start = r.text.find(u'"proid_price":"',start)
 				end = r.text.find(u'"',start+len(u'"proid_price":"'))
 				price = r.text[start+len(u'"proid_price":"'):end]
-				print color.encode('utf8')
+				print tag.encode('utf8')
 				print price
 
-
-def tmall_brief_url(url):
-	start = url.find(u'id=')
-	end = url.find(u'&',start)
-	if end == -1:
-		itemid = url[start+len(u'id='):]
-	else:
-		itemid = url[start+len(u'id='):end]
-	'''get user_id useless
-	user_id = ''
-	start = url.find(u'user_id=')
-	if start != -1:
-		end = url.find(u'&',start)
-		if end == -1:
-			user_id = url[start+len(u'user_id='):]
-		else:
-			user_id = url[start+len(u'user_id='):end]
-	'''
-
-	return "http://detail.tmall.com/item.htm?id="+itemid
-def tmall_price_url(burl):
-	'''use original url
-	start = url.find(u'id=')
-	itemid = url[start+len(u'id='):]
-	'''
-	start = burl.find(u'id=')
-	itemid = burl[start+len(u'id='):]
-	return 'http://mdskip.taobao.com/core/initItemDetail.htm?itemId='+itemid
-def tmall_search(purl):
-	start = purl.find(u'itemId=')
-	itemid = purl[start+len(u'itemId='):]
+def tmall_search(itemid,ip):
 	detail_url = 'http://detail.tmall.com/item.htm?id='+itemid
-	price_url = 'http://mdskip.taobao.com/core/initItemDetail.htm?itemId='+itemid
+	price_url  = 'http://'+ip+ '/core/initItemDetail.htm?itemId='+itemid
 	header = {'Referer':detail_url}
 	try:
 		dr = requests.get(detail_url)
@@ -212,6 +176,7 @@ def tmall_search(purl):
 	# print pr.text[start+len(u'"itemPriceResultDO":'):end].encode(u'utf8')
 	pricedata = json.loads(pr.text[start+len(u'"itemPriceResultDO":'):end])
 	resultlist = []
+	
 	for i in pricedata["priceInfo"]:
 		start = dr.text.find(i)
 		if start == -1:
@@ -243,12 +208,12 @@ def tmall_search(purl):
 		tagdic['price'] = price
 		resultlist.append(tagdic)
 		# print price
-	oneprice = resultlist[0]['price']
-	for i in resultlist:
-		if i['price']!= oneprice:
-			return resultlist
-	return [{'price':oneprice}]
-
+	# oneprice = resultlist[0]['price']
+	# for i in resultlist:
+	# 	if i['price']!= oneprice:
+	# 		return resultlist
+	# return [{'price':oneprice}]
+	return resultlist
 
 def taobao_brief_url(url):
 	start = url.find(u'id=')
@@ -262,15 +227,45 @@ def search_taobao(url):
 		return None
 	print r.text.encode('utf8')
 
-# burl = tmall_brief_url(u'http://detail.tmall.com/item.htm?id=12280524326')
+# amazon_search(u'B00960YR3Q',u'203.81.17.246')
+# print jd_search(u'499116',u'58.83.220.19')
+# dangdang_search(u'1059068822',u'119.255.240.100')
+# rest = tmall_search(u'13961714037',u'110.75.82.61')
+
+# burl = tmall_brief_url(u'http://detail.tmall.com/item.htm?spm=a230r.1.14.202.fzOXGO&id=26704100255')
 # purl = tmall_price_url(burl)
 # rest = tmall_search(purl)
+# print 123
 # for i in rest:
-# 	print i
+# 	# print i
 # 	for j in i:
 # 		print i[j]
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+#############################amazon_search##################################
+ip = getgoodip(u'amazon.cn')
+print 'blue'
+amazon_search(u'B007WQP1ZY',ip)
 # print "blue"
-# print amazon_search(u"http://www.amazon.cn/dp/B007WQP1ZY")
+# print amazon_search(u"http://www.amazon.cn/dp/B007WQP1ZF")
 # print "cha"
 # print amazon_search(u"http://www.amazon.cn/dp/B007RSKTXQ")
 # print "red"
@@ -279,3 +274,17 @@ def search_taobao(url):
 # print amazon_search(u"http://www.amazon.cn/dp/B005EE1G46")
 # print "cu"
 # print amazon_search(u"http://www.amazon.cn/dp/B005EE1FOW")
+# print 'jdhei'
+# print jd_search('http://p.3.cn/prices/mgets?skuIds=J_912574')
+# print 'hei'
+# print jd_search('http://p.3.cn/prices/mgets?skuIds=J_584773')
+# print 'blue'
+# print jd_search('http://p.3.cn/prices/mgets?skuIds=J_613974')
+# print 'red'
+# print jd_search('http://p.3.cn/prices/mgets?skuIds=J_613972')
+# print 'cha'
+# print jd_search('http://p.3.cn/prices/mgets?skuIds=J_613970')
+# print 'xi'
+# print jd_search('http://p.3.cn/prices/mgets?skuIds=J_372416')
+# print 'cu'
+# print jd_search('http://p.3.cn/prices/mgets?skuIds=J_372412')
